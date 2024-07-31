@@ -18,7 +18,7 @@ function NavSearch() {
     } else {
       params.delete('search')
     }
-    replace(`?${params.toString()}`)
+    replace(`/?${params.toString()}`)
   }, 300)
 
   useEffect(() => {
