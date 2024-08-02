@@ -19,8 +19,8 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang='en' suppressHydrationWarning>
-        <body className={inter.className}>
+      <html lang='en' suppressHydrationWarning={true}>
+        <body className={inter.className} suppressHydrationWarning={true}>
           <Providers>
             <Navbar />
             <main className='container py-10'>{children}</main>
