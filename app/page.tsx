@@ -11,7 +11,7 @@ const PropertiesContainer = dynamic(() => import('@/components/home/PropertiesCo
 })
 
 function HomePage({ searchParams }: { searchParams: { category?: string; search?: string } }) {
-  console.log(searchParams)
+  // console.log(searchParams)
   return (
     <section>
       <CategoriesList category={searchParams?.category} search={searchParams?.search} />

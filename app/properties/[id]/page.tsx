@@ -1,7 +1,6 @@
 import FavoriteToggleButton from '@/components/card/FavoriteToggleButton'
 import PropertyRating from '@/components/card/PropertyRating'
 import Amenities from '@/components/preporties/Amenities'
-import BookingCalendar from '@/components/preporties/BookingCalendar'
 import BreadCrumbs from '@/components/preporties/BreadCrumbs'
 import Description from '@/components/preporties/Description'
 import ImageContainer from '@/components/preporties/ImageContainer'
@@ -20,6 +19,11 @@ import { auth } from '@clerk/nextjs/server'
 const DynamicMap = dynamic(() => import('@/components/preporties/PropertyMap'), {
   ssr: false,
   loading: () => <Skeleton className='h-[400px] w-full' />,
+})
+
+const DynamicBookingWrapper = dynamic(() => import('@/components/booking/BookingWrapper'), {
+  ssr: false,
+  loading: () => <Skeleton className='h-[200px] w-full' />,
 })
 
 async function PropertyDetailsPage({ params }: { params: { id: string } }) {
@@ -70,7 +74,7 @@ async function PropertyDetailsPage({ params }: { params: { id: string } }) {
         </div>
         <div className='lg:col-span-4 flex flex-col items-center'>
           {/* calendar */}
-          <BookingCalendar />
+          <DynamicBookingWrapper propertyId={property.id} price={property.price} bookings={property.bookings} />
         </div>
       </section>
       {reviewDoesNotExist && <SubmitReview propertyId={property.id} />}

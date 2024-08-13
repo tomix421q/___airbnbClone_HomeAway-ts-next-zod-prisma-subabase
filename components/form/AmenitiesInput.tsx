@@ -4,7 +4,10 @@ import { amenities, Amenity } from '@/utils/amenities'
 import { Checkbox } from '@/components/ui/checkbox'
 
 function AmenitiesInput({ defaultValue }: { defaultValue?: Amenity[] }) {
-  const [selectedAmenities, setSelectedAmenities] = useState<Amenity[]>(defaultValue || amenities)
+  const amenitiesWithIcons = defaultValue?.map(({ name, selected }) => {
+    return { name, selected, icon: amenities.find((amenity) => amenity.name === name)!.icon }
+  })
+  const [selectedAmenities, setSelectedAmenities] = useState<Amenity[]>(amenitiesWithIcons || amenities)
 
   const handleChange = (amenity: Amenity) => {
     setSelectedAmenities((prev) => {

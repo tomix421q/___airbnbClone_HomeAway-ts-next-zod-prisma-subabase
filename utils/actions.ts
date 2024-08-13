@@ -8,6 +8,8 @@ import { redirect } from 'next/navigation'
 import { uploadImage } from './supabase'
 import path from 'path'
 import { count } from 'console'
+import { calculateTotals } from './calculateTotals'
+import { toast } from '@/components/ui/use-toast'
 
 const getAuthUser = async () => {
   const user = await currentUser()
@@ -236,6 +238,12 @@ export const fetchPropertyDetails = (id: string) => {
     },
     include: {
       profile: true,
+      bookings: {
+        select: {
+          checkIn: true,
+          checkOut: true,
+        },
+      },
     },
   })
 }
@@ -344,4 +352,197 @@ export const findExistingReview = async (userId: string, propertyId: string) => 
       propertyId: propertyId,
     },
   })
+}
+
+export const createBookingAction = async (prevState: { propertyId: string; checkIn: Date; checkOut: Date }) => {
+  const user = await getAuthUser()
+  const { propertyId, checkIn, checkOut } = prevState
+
+  const property = await db.property.findUnique({
+    where: { id: propertyId },
+    select: { price: true },
+  })
+
+  if (!property) {
+    return { message: 'Property not found' }
+  }
+  const { orderTotal, totalNights } = calculateTotals({
+    checkIn,
+    checkOut,
+    price: property.price,
+  })
+
+  try {
+    const booking = await db.booking.create({
+      data: {
+        checkIn,
+        checkOut,
+        orderTotal,
+        totalNights,
+        profileId: user.id,
+        propertyId,
+      },
+    })
+  } catch (error) {
+    return renderError(error)
+  }
+  redirect('/bookings')
+}
+
+export const fetchBookings = async () => {
+  const user = await getAuthUser()
+
+  const bookings = await db.booking.findMany({
+    where: {
+      profileId: user.id,
+    },
+    include: {
+      property: {
+        select: {
+          id: true,
+          name: true,
+          country: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  })
+  return bookings
+}
+
+//BOOKINGS
+export const deleteBookingAction = async (prevState: { bookingId: string }) => {
+  const { bookingId } = prevState
+  const user = await getAuthUser()
+
+  try {
+    const result = await db.booking.delete({
+      where: {
+        id: bookingId,
+        profileId: user.id,
+      },
+    })
+    revalidatePath('/bookings')
+    return { message: 'Booking deleted successfully' }
+  } catch (error) {
+    return renderError(error)
+  }
+}
+
+export const fetchRentals = async () => {
+  const user = await getAuthUser()
+  const rentals = await db.property.findMany({
+    where: {
+      profileId: user.id,
+    },
+    select: {
+      id: true,
+      name: true,
+      price: true,
+    },
+  })
+
+  const rentalsWithBookingsSums = await Promise.all(
+    rentals.map(async (rental) => {
+      //
+      const totalNightsSum = await db.booking.aggregate({
+        where: {
+          propertyId: rental.id,
+        },
+        _sum: {
+          totalNights: true,
+        },
+      })
+      //
+      const orderTotalSum = await db.booking.aggregate({
+        where: {
+          propertyId: rental.id,
+        },
+        _sum: {
+          orderTotal: true,
+        },
+      })
+      return { ...rental, totalNightsSum: totalNightsSum._sum.totalNights, orderTotalSum: orderTotalSum._sum.orderTotal }
+    })
+  )
+  return rentalsWithBookingsSums
+}
+
+export const deleteRentalAction = async (prevState: { propertyId: string }) => {
+  const { propertyId } = prevState
+  const user = await getAuthUser()
+  try {
+    await db.property.delete({
+      where: {
+        id: propertyId,
+        profileId: user.id,
+      },
+    })
+    revalidatePath('/rentals')
+    return { message: 'Rental deleted successfully' }
+  } catch (error) {
+    return renderError(error)
+  }
+}
+
+//UPDATE RENTALS
+export const fetchRentalDetails = async (propertyId: string) => {
+  const user = await getAuthUser()
+
+  return db.property.findUnique({
+    where: {
+      id: propertyId,
+      profileId: user.id,
+    },
+  })
+}
+
+export const updatePropertyAction = async (prevState: any, formData: FormData): Promise<{ message: string }> => {
+  const user = getAuthUser()
+  const propertyId = formData.get('id') as string
+
+  try {
+    const rawData = Object.fromEntries(formData)
+    const validateFields = validateWithZodSchema(propertySchema, rawData)
+    await db.property.update({
+      where: {
+        id: propertyId,
+        profileId: (await user).id,
+      },
+      data: {
+        ...validateFields,
+      },
+    })
+    revalidatePath(`/rentals/${propertyId}/edit`)
+    return { message: 'Update Successful' }
+  } catch (error) {
+    return renderError(error)
+  }
+  return { message: 'update property action' }
+}
+
+export const updatePropertyImageAction = async (prevState: any, formData: FormData): Promise<{ message: string }> => {
+  const user = await getAuthUser()
+  const propertyId = formData.get('id') as string
+
+  try {
+    const image = formData.get('image') as File
+    const validateFields = validateWithZodSchema(imageSchema, { image })
+    const fullPath = await uploadImage(validateFields.image)
+
+    await db.property.update({
+      where: {
+        id: propertyId,
+        profileId: user.id,
+      },
+      data: {
+        image: fullPath,
+      },
+    })
+    revalidatePath(`/rentals/${propertyId}/edit`)
+    return { message: 'Property Image Updated successfully' }
+  } catch (error) {}
+  return { message: 'update property image' }
 }
