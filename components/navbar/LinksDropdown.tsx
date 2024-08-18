@@ -12,10 +12,11 @@ import UserIcon from './UserIcon'
 import { links } from '@/utils/links'
 import SignOutLink from './SignOutLink'
 import { SignedOut, SignedIn, SignInButton, SignUpButton } from '@clerk/nextjs' //is signout?
-import { Separator } from '@radix-ui/react-dropdown-menu'
+import { auth } from '@clerk/nextjs/server'
 
 function LinksDropdown() {
-  let isOpen: boolean = true
+  const { userId } = auth()
+  const isAdminUser = userId === process.env.ADMIN_USER_ID
 
   return (
     <DropdownMenu>
@@ -44,11 +45,13 @@ function LinksDropdown() {
         {/*  */}
         <SignedIn>
           {links.map((link) => {
+            if (link.label === 'admin' && !isAdminUser) return null
+
             return (
               <DropdownMenuItem key={link.href} className='capitalize w-full'>
-                <a href={link.href} className='w-full'>
+                <Link href={link.href} className='w-full'>
                   {link.label}
-                </a>
+                </Link>
               </DropdownMenuItem>
             )
           })}

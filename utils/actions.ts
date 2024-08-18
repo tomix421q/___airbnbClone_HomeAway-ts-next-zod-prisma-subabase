@@ -10,6 +10,7 @@ import path from 'path'
 import { count } from 'console'
 import { calculateTotals } from './calculateTotals'
 import { toast } from '@/components/ui/use-toast'
+import { formatDate } from './format'
 
 const getAuthUser = async () => {
   const user = await currentUser()
@@ -17,6 +18,14 @@ const getAuthUser = async () => {
     throw new Error('You must be logged in to access this route')
   }
   if (!user.privateMetadata.hasProfile) redirect('/profile/create')
+  return user
+}
+
+const getAdminUser = async () => {
+  const user = await getAuthUser()
+  if (user.id !== process.env.ADMIN_USER_ID) {
+    redirect('/')
+  }
   return user
 }
 
@@ -356,6 +365,7 @@ export const findExistingReview = async (userId: string, propertyId: string) => 
 
 export const createBookingAction = async (prevState: { propertyId: string; checkIn: Date; checkOut: Date }) => {
   const user = await getAuthUser()
+  let bookingId: null | string = null //stripe
   const { propertyId, checkIn, checkOut } = prevState
 
   const property = await db.property.findUnique({
@@ -383,10 +393,11 @@ export const createBookingAction = async (prevState: { propertyId: string; check
         propertyId,
       },
     })
+    bookingId = booking.id //stripe
   } catch (error) {
     return renderError(error)
   }
-  redirect('/bookings')
+  redirect(`/checkout?bookingId=${bookingId}`)
 }
 
 export const fetchBookings = async () => {
@@ -487,7 +498,7 @@ export const deleteRentalAction = async (prevState: { propertyId: string }) => {
   }
 }
 
-//UPDATE RENTALS
+//UPDATE RENTALS  /my rentals
 export const fetchRentalDetails = async (propertyId: string) => {
   const user = await getAuthUser()
 
@@ -545,4 +556,75 @@ export const updatePropertyImageAction = async (prevState: any, formData: FormDa
     return { message: 'Property Image Updated successfully' }
   } catch (error) {}
   return { message: 'update property image' }
+}
+
+//ALL RESERVATIONS /reservations  [of others]
+export const fetchReservations = async () => {
+  const user = await getAuthUser()
+
+  const reservations = await db.booking.findMany({
+    where: {
+      property: {
+        profileId: user.id,
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+    include: {
+      property: {
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          country: true,
+        },
+      },
+    },
+  })
+  return reservations
+}
+
+//ADMIN USER stats container
+export const fetchStats = async () => {
+  await getAdminUser()
+
+  const usersCount = await db.profile.count()
+  const propertiesCount = await db.property.count()
+  const bookingCount = await db.booking.count()
+
+  return { usersCount, propertiesCount, bookingCount }
+}
+
+//ADMIN charts data
+export const fetchChartsData = async () => {
+  await getAdminUser()
+
+  const date = new Date()
+  date.setMonth(date.getMonth() - 6)
+  const sixMonthsAgo = date
+
+  const bookings = await db.booking.findMany({
+    where: {
+      createdAt: {
+        gte: sixMonthsAgo,
+      },
+    },
+    orderBy: {
+      createdAt: 'asc',
+    },
+  })
+
+  const bookingsPerMonth = bookings.reduce((total, current) => {
+    const date = formatDate(current.createdAt, true)
+    console.log('THIS +' + date)
+    const existingEntry = total.find((entry) => entry.date === date)
+    if (existingEntry) {
+      existingEntry.count += 1
+    } else {
+      total.push({ date, count: 1 })
+    }
+    return total
+  }, [] as Array<{ date: string; count: number }>)
+  return bookingsPerMonth
 }
