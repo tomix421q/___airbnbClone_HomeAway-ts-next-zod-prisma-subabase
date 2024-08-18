@@ -156,24 +156,29 @@ export const createPropertyAction = async (prevState: any, formData: FormData): 
 }
 
 export const fetchProperties = async ({ search = '', category }: { search?: string; category?: string }) => {
-  const preperties = await db.property.findMany({
-    where: {
-      category,
-      OR: [{ name: { contains: search, mode: 'insensitive' } }, { tagline: { contains: search, mode: 'insensitive' } }],
-    },
-    select: {
-      id: true,
-      name: true,
-      tagline: true,
-      image: true,
-      country: true,
-      price: true,
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-  })
-  return preperties
+  try {
+    const properties = await db.property.findMany({
+      where: {
+        category,
+        OR: [{ name: { contains: search, mode: 'insensitive' } }, { tagline: { contains: search, mode: 'insensitive' } }],
+      },
+      select: {
+        id: true,
+        name: true,
+        tagline: true,
+        image: true,
+        country: true,
+        price: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
+    return properties
+  } catch (error) {
+    console.error('Failed to fetch properties:', error)
+    throw new Error('Failed to fetch properties')
+  }
 }
 
 export const fetchFavoriteId = async ({ propertyId }: { propertyId: string }) => {
