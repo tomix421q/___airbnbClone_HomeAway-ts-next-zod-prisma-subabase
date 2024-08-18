@@ -17,9 +17,9 @@ function HomePage({ searchParams }: { searchParams: { category?: string; search?
       <CategoriesList category={searchParams?.category} search={searchParams?.search} />
 
       {/* nacitanie loadingu pri client side [Suspense] */}
-      <Suspense fallback={<LoadingCards />}>
-        <PropertiesContainer category={searchParams?.category} search={searchParams?.search} />
-      </Suspense>
+      {/* <Suspense fallback={<LoadingCards />}> */}
+      <PropertiesContainer category={searchParams?.category} search={searchParams?.search} />
+      {/* </Suspense> */}
     </section>
   )
 }
